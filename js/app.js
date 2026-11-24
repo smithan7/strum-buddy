@@ -1,6 +1,6 @@
 import { CHORDS, LEARN_ORDER, OPEN_MIDI, STRING_NAMES, shapeFor, tipFor, shapeMidi } from './chords.js';
 import { detectPitch, nearestString, tuneAdvice } from './pitch.js';
-import { BUILT_IN_SONGS, parseSong, songSteps, chordsUsed } from './songs.js';
+import { BUILT_IN_SONGS, parseSong, songSteps, chordsUsed, listOrder, seasonalList, MAIN_LIST } from './songs.js';
 import { chordDiagram, fingerLegend, STRING_WIDTHS, thicknessKey } from './diagram.js';
 import { classify, rms, Judge } from './detect.js';
 import { audio } from './audio.js';
@@ -88,21 +88,28 @@ function switchScreen() {
   });
 }
 
+// Which song list is showing: the one she picked last, or the holiday one in season.
+let songList = store.get('songList', null);
+const LIST_ICONS = { [MAIN_LIST]: '🎵', Christmas: '🎄', "New Year's": '🎆' };
+
 function songsScreen() {
-  const rows = allSongIds().map((id) => {
-    const song = parseSong(songText(id));
-    return `<div class="songrow">
+  const songs = allSongIds().map((id) => ({ id, song: parseSong(songText(id)) }));
+  const lists = listOrder([MAIN_LIST, ...songs.map((x) => x.song.list)]);
+  let cur = songList && lists.includes(songList) ? songList : seasonalList();
+  if (!lists.includes(cur)) cur = MAIN_LIST;
+  const tabs = lists.map((n) => `<button class="tab${n === cur ? ' on' : ''}" data-list="${esc(n)}">${LIST_ICONS[n] ?? '⭐'} ${esc(n)}</button>`).join('');
+  const rows = songs.filter((x) => x.song.list === cur).map(({ id, song }) => `<div class="songrow">
       <button class="songplay" data-play="${esc(id)}">
         <span class="songtitle">${esc(song.title)}</span>
         <span class="chips">${chordsUsed(song).map((c) => `<i>${c}</i>`).join('')}</span>
         <span class="stars">${starStr(stars['song:' + id])}</span>
       </button>
       <button class="edit" data-edit="${esc(id)}" aria-label="edit">✏️</button>
-    </div>`;
-  });
-  show(topbar('Songs') + `<div class="songs">${rows.join('')}</div>
-    <button class="ghost" id="new">+ Add a song</button>`);
+    </div>`);
+  show(topbar('Songs') + `<div class="tabs">${tabs}</div><div class="songs">${rows.join('')}</div>
+    <button class="ghost" id="new">+ Add a song${cur === MAIN_LIST ? '' : ` to ${esc(cur)}`}</button>`);
   on('.back', 'click', home);
+  on('[data-list]', 'click', (e) => { songList = e.currentTarget.dataset.list; store.set('songList', songList); songsScreen(); });
   on('[data-play]', 'click', (e) => {
     const id = e.currentTarget.dataset.play;
     const song = parseSong(songText(id));
@@ -110,7 +117,8 @@ function songsScreen() {
     if (steps.length) play({ title: song.title, note: song.note, key: 'song:' + id, steps, back: songsScreen });
   });
   on('[data-edit]', 'click', (e) => editScreen(e.currentTarget.dataset.edit));
-  on('#new', 'click', () => editScreen('my-' + Date.now().toString(36), 'title: My song\n# Verse\nG C | words go here\nEm D | more words'));
+  on('#new', 'click', () => editScreen('my-' + Date.now().toString(36),
+    `title: My song\n${cur === MAIN_LIST ? '' : `list: ${cur}\n`}# Verse\nG C | words go here\nEm D | more words`));
 }
 
 function editScreen(id, starter) {
@@ -121,7 +129,7 @@ function editScreen(id, starter) {
       <textarea id="txt" spellcheck="false" autocapitalize="off">${esc(text)}</textarea>
       <div class="edithelp">
         <p><b>How to write a song</b></p>
-        <p><code>title: Song name</code><br><code>note: capo, tips…</code><br><code># Verse 1</code> starts a section<br>
+        <p><code>title: Song name</code><br><code>note: capo, tips…</code><br><code>list: Christmas</code> puts it in a list (make up any name, like Halloween)<br><code># Verse 1</code> starts a section<br>
         <code>G C Em D | the words</code> one strum per chord, words after the <code>|</code></p>
         <p>Chords I know: ${Object.keys(CHORDS).join(', ')}</p>
         <div id="errs" class="errs"></div>
