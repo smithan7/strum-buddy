@@ -1,6 +1,7 @@
-import { CHORDS, LEARN_ORDER, shapeFor, tipFor, shapeMidi } from './chords.js';
+import { CHORDS, LEARN_ORDER, OPEN_MIDI, STRING_NAMES, shapeFor, tipFor, shapeMidi } from './chords.js';
+import { detectPitch, nearestString, tuneAdvice } from './pitch.js';
 import { BUILT_IN_SONGS, parseSong, songSteps, chordsUsed } from './songs.js';
-import { chordDiagram, fingerLegend } from './diagram.js';
+import { chordDiagram, fingerLegend, STRING_WIDTHS, thicknessKey } from './diagram.js';
 import { classify, rms, Judge } from './detect.js';
 import { audio } from './audio.js';
 
@@ -52,9 +53,10 @@ function home() {
       <button class="card c1" data-go="chords"><b>1</b><span>Learn the chords</span><small>Where your fingers go</small></button>
       <button class="card c2" data-go="switch"><b>2</b><span>Switch it up</span><small>Change chords faster</small></button>
       <button class="card c3" data-go="songs"><b>3</b><span>Play songs</span><small>The app waits for you</small></button>
+      <button class="card c4" data-go="tuner"><b>🎵</b><span>Tune up</span><small>Do this first!</small></button>
     </div>
     <label class="toggle"><input type="checkbox" id="easy" ${easy ? 'checked' : ''}> Easy one-finger G and C</label>`);
-  on('[data-go]', 'click', (e) => ({ chords: chordsScreen, switch: switchScreen, songs: songsScreen })[e.currentTarget.dataset.go]());
+  on('[data-go]', 'click', (e) => ({ chords: chordsScreen, switch: switchScreen, songs: songsScreen, tuner: tunerScreen })[e.currentTarget.dataset.go]());
   on('#easy', 'change', (e) => { easy = e.target.checked; store.set('easy', easy); });
 }
 
@@ -140,6 +142,60 @@ function editScreen(id, starter) {
   on('#save', 'click', () => { const all = customSongs(); all[id] = $('#txt').value; store.set('songs', all); songsScreen(); });
   on('#reset', 'click', () => { const all = customSongs(); delete all[id]; store.set('songs', all); editScreen(id); });
   on('#del', 'click', () => { const all = customSongs(); delete all[id]; store.set('songs', all); songsScreen(); });
+}
+
+// ---------- tuner: pluck one string, see if it's too low, too high or just right ----------
+function tunerScreen() {
+  const strings = STRING_NAMES.map((name, i) => `
+    <button class="tstring" data-s="${i}" aria-label="Play the ${name} string">
+      <svg viewBox="0 0 40 120" class="tsvg"><line x1="20" x2="20" y1="6" y2="114" stroke="currentColor" stroke-width="${STRING_WIDTHS[i] * 1.2}" stroke-linecap="round"/></svg>
+      <b>${name}</b><span class="tick">✓</span>
+    </button>`).join('');
+  show(topbar('Tune up') + `
+    <p class="hint">Pluck one string at a time and let it ring. Start with the thickest string. Tap a string below to hear how it should sound.</p>
+    <div class="tuner">
+      <div class="tnote" id="tnote">–</div>
+      <div class="tmeter" aria-hidden="true"><div class="tzone"></div><div class="tneedle" id="needle"></div><span class="lo">too low</span><span class="hi">too high</span></div>
+      <div class="bubble" id="tmsg">Tap "Start listening", then pluck a string 🎸</div>
+      <div class="tstrings">${strings}</div>
+      <svg viewBox="0 0 300 30" class="tkey" aria-hidden="true">${thicknessKey(20, 280, 6)}</svg>
+    </div>
+    <div class="controls"><button id="listen" class="big">🎤 Start listening</button></div>`);
+  on('.back', 'click', home);
+  const done = new Set();
+  let recent = [], goodSince = null, timer = null;
+  const say = (t, cls = '') => { $('#tmsg').textContent = t; $('#tmsg').className = 'bubble ' + cls; };
+  on('[data-s]', 'click', (e) => audio.play([OPEN_MIDI[+e.currentTarget.dataset.s]]));
+  function tick() {
+    if (audio.muted) return;
+    const buf = audio.read();
+    const level = rms(buf.subarray(buf.length - 2048));
+    const hz = level > 0.008 ? detectPitch(buf, audio.ctx.sampleRate) : null;
+    if (!hz) { recent = []; goodSince = null; return; }
+    recent = [...recent.slice(-4), hz];
+    const mid = [...recent].sort((a, b) => a - b)[Math.floor(recent.length / 2)];
+    const ns = nearestString(mid);
+    const adv = tuneAdvice(ns.cents);
+    $('#tnote').textContent = ns.name;
+    $('#needle').style.left = `${50 + Math.max(-50, Math.min(50, ns.cents))}%`;
+    $('#needle').classList.toggle('ok', adv.ok);
+    $app.querySelectorAll('[data-s]').forEach((b) => b.classList.toggle('now', +b.dataset.s === ns.index));
+    if (adv.ok) {
+      goodSince ??= audio.now;
+      if (audio.now - goodSince > 0.8 && !done.has(ns.index)) {
+        done.add(ns.index);
+        $app.querySelector(`[data-s="${ns.index}"]`).classList.add('done');
+        audio.cheer();
+      }
+      say(done.size === 6 ? 'All 6 strings are in tune! 🎉 Time to play.' : `${ns.name} string: ${adv.text}`, 'good');
+    } else { goodSince = null; say(`${ns.name} string: ${adv.text}`, 'try'); }
+  }
+  const start = () => { $('#listen').style.display = 'none'; say('Listening… pluck a string 👂'); timer = setInterval(tick, 50); };
+  cleanup = () => clearInterval(timer);
+  on('#listen', 'click', async () => {
+    try { await audio.start(); start(); } catch { say("I can't hear the microphone. Ask a grown-up to allow it (Settings › Safari › Microphone).", 'try'); }
+  });
+  if (audio.running) start();
 }
 
 // ---------- the play screen: listens and waits for her ----------
