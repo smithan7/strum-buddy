@@ -1,6 +1,6 @@
 import { CHORDS, LEARN_ORDER, OPEN_MIDI, STRING_NAMES, shapeFor, tipFor, shapeMidi } from './chords.js';
 import { detectPitch, nearestString, tuneAdvice } from './pitch.js';
-import { BUILT_IN_SONGS, parseSong, songSteps, chordsUsed, listOrder, seasonalList, MAIN_LIST } from './songs.js';
+import { BUILT_IN_SONGS, parseSong, songSteps, chordsUsed, listOrder, seasonalList, MAIN_LIST, fillWords } from './songs.js';
 import { chordDiagram, fingerLegend, STRING_WIDTHS, thicknessKey } from './diagram.js';
 import { classify, rms, Judge } from './detect.js';
 import { audio } from './audio.js';
@@ -135,8 +135,15 @@ function editScreen(id, starter) {
         <div id="errs" class="errs"></div>
       </div>
     </div>
+    <div class="pastebox" id="pastebox" hidden>
+      <p><b>Paste the words here</b>, one line of the song per line. Each line goes on the next chord line, in order. Lines like [Chorus] are skipped.</p>
+      <textarea id="pasted" placeholder="Paste the words here"></textarea>
+      <div class="controls"><button id="fill" class="big">Put the words in</button><button id="pastecancel">Cancel</button></div>
+    </div>
+    <p class="hint" id="pastemsg"></p>
     <div class="controls">
       <button id="save" class="big">Save</button>
+      <button id="paste">📋 Paste words</button>
       ${customised ? '<button id="reset">Undo my changes</button>' : ''}
       ${!isBuiltIn(id) && !starter ? '<button id="del">Delete song</button>' : ''}
     </div>`);
@@ -146,6 +153,18 @@ function editScreen(id, starter) {
   };
   check();
   on('#txt', 'input', check);
+  on('#paste', 'click', () => { $('#pastebox').hidden = false; $('#pasted').focus(); });
+  on('#pastecancel', 'click', () => { $('#pastebox').hidden = true; });
+  on('#fill', 'click', () => {
+    const r = fillWords($('#txt').value, $('#pasted').value);
+    $('#txt').value = r.text;
+    $('#pastebox').hidden = true;
+    $('#pasted').value = '';
+    check();
+    $('#pastemsg').textContent = r.used
+      ? `Put in ${r.used} line${r.used === 1 ? '' : 's'} of words${r.extra ? ` (added ${r.extra} more chord line${r.extra === 1 ? '' : 's'} to fit them, check the chords)` : ''}. Tap Save to keep it.`
+      : 'No words found to put in.';
+  });
   on('.back', 'click', songsScreen);
   on('#save', 'click', () => { const all = customSongs(); all[id] = $('#txt').value; store.set('songs', all); songsScreen(); });
   on('#reset', 'click', () => { const all = customSongs(); delete all[id]; store.set('songs', all); editScreen(id); });

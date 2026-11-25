@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BUILT_IN_SONGS, parseSong, songSteps, chordsUsed, listOrder, seasonalList, MAIN_LIST } from '../js/songs.js';
+import { BUILT_IN_SONGS, parseSong, songSteps, chordsUsed, listOrder, seasonalList, MAIN_LIST, fillWords } from '../js/songs.js';
 
 test('built-in songs parse with no errors', () => {
   for (const s of BUILT_IN_SONGS) {
@@ -56,4 +56,27 @@ test('the holiday list opens in season', () => {
   assert.equal(seasonalList(new Date(2026, 11, 30)), "New Year's");
   assert.equal(seasonalList(new Date(2027, 0, 2)), "New Year's");
   assert.equal(seasonalList(new Date(2027, 5, 2)), MAIN_LIST);
+});
+
+test('paste words: one line of words per chord line, headers skipped', () => {
+  const song = 'title: T\n# Verse\nG C | line 1\nEm D | line 2\n# Chorus\nC G | line 3';
+  const r = fillWords(song, '[Verse 1]\nfirst words\n\nsecond words\nChorus:\nthird words');
+  assert.equal(r.text, 'title: T\n# Verse\nG C | first words\nEm D | second words\n# Chorus\nC G | third words');
+  assert.equal(r.extra, 0);
+});
+
+test('paste words: extra words repeat the last section chords', () => {
+  const r = fillWords('# V\nEm C | a\nD Em | b', 'one\ntwo\nthree\nfour\nfive');
+  assert.deepEqual(r.text.split('\n').slice(3), ['Em C | three', 'D Em | four', 'Em C | five']);
+  assert.equal(r.extra, 3);
+  assert.deepEqual(parseSong(r.text).errors, []);
+});
+
+test('paste words: a lyric that starts with "Chorus" is kept', () => {
+  assert.equal(fillWords('G | a', 'Chorus of the bells').text, 'G | Chorus of the bells');
+});
+
+test('paste words: fewer words leaves the rest as they were', () => {
+  const r = fillWords('G | a\nD | b', 'only');
+  assert.equal(r.text, 'G | only\nD | b');
 });

@@ -262,3 +262,29 @@ export function songSteps(song) {
 export function chordsUsed(song) {
   return [...new Set(songSteps(song).map((s) => s.chord))];
 }
+
+// "Paste words": put pasted lyrics on the chord lines, one line of words per chord line, in order.
+// Header lines in the paste ("[Chorus]", "Verse 2:", blank lines) are skipped. If there are more
+// lines of words than chord lines, the last section's chord lines repeat to hold them. Chord
+// lines with no words left keep what they had.
+const isHeader = (l) => /^\[.*\]$/.test(l) || /^\(.*\)$/.test(l) || /^(verse|chorus|bridge|intro|outro|pre-chorus|refrain)(\s*\d+)?\s*:?$/i.test(l);
+export function fillWords(text, pasted) {
+  const words = pasted.split('\n').map((l) => l.trim()).filter((l) => l && !isHeader(l));
+  const lines = text.replace(/\s+$/, '').split('\n');
+  const isChordLine = (raw) => {
+    const l = raw.trim();
+    return l && !/^(title|note|list):/i.test(l) && !l.startsWith('#');
+  };
+  const chordsOf = (raw) => { const i = raw.indexOf('|'); return (i < 0 ? raw : raw.slice(0, i)).trim(); };
+  let w = 0;
+  const out = lines.map((raw) => (isChordLine(raw) && w < words.length ? `${chordsOf(raw)} | ${words[w++]}` : raw));
+  // Chord patterns of the last section, to repeat for leftover words.
+  let lastSec = [];
+  for (const raw of lines) {
+    if (raw.trim().startsWith('#')) lastSec = [];
+    else if (isChordLine(raw)) lastSec.push(chordsOf(raw));
+  }
+  if (!lastSec.length) lastSec = ['G'];
+  for (let k = 0; w < words.length; k++) out.push(`${lastSec[k % lastSec.length]} | ${words[w++]}`);
+  return { text: out.join('\n'), used: Math.min(w, words.length), extra: Math.max(0, words.length - lines.filter(isChordLine).length) };
+}
