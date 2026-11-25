@@ -96,6 +96,59 @@ C G | line 3
 D G | line 4`,
   },
   {
+    id: 'overriver',
+    text: `title: Over the River and Through the Wood
+list: Thanksgiving
+note: The old song about going to grandfather's house for Thanksgiving. G, C and D.
+# Verse 1
+G C G | Over the river and through the wood
+G D | To grandfather's house we go
+G C | The horse knows the way to carry the sleigh
+G D G | Through the white and drifted snow
+G C G | Over the river and through the wood
+G D | Oh, how the wind does blow!
+G C | It stings the toes and bites the nose
+G D G | As over the ground we go`,
+  },
+  {
+    id: 'simplegifts',
+    text: `title: Simple Gifts
+list: Thanksgiving
+note: A gentle thank-you song. Mostly G and D.
+# Verse
+G G | 'Tis the gift to be simple, 'tis the gift to be free
+G D | 'Tis the gift to come down where we ought to be
+G G | And when we find ourselves in the place just right
+D G | 'Twill be in the valley of love and delight
+# Chorus
+D G | When true simplicity is gained
+G D | To bow and to bend we shan't be ashamed
+G C | To turn, turn will be our delight
+D G | Till by turning, turning we come round right`,
+  },
+  {
+    id: 'gather',
+    text: `title: We Gather Together
+list: Thanksgiving
+note: A Thanksgiving hymn people sing before the big dinner.
+# Verse
+G C D | We gather together to ask the Lord's blessing
+G C D | He chastens and hastens His will to make known
+Em C D | The wicked oppressing now cease from distressing
+G C D G | Sing praises to His name; He forgets not His own`,
+  },
+  {
+    id: 'gobble',
+    text: `title: Gobble Strum
+list: Thanksgiving
+note: A silly one made just for Strum Buddy, with the four main chords.
+# Verse
+Em C | Gobble, gobble, here we go
+G D | Strumming on a turkey day
+Em C | Pass the pie and say thank you
+D G | Happy Thanksgiving, hooray!`,
+  },
+  {
     id: 'jingle',
     text: `title: Jingle Bells
 list: Christmas
@@ -194,18 +247,19 @@ G | Happy New Year! 🎆`,
 
 // The main list first, then the holidays, then any list she makes up.
 export const MAIN_LIST = 'Songs';
-const LIST_ORDER = [MAIN_LIST, 'Christmas', "New Year's"];
+const LIST_ORDER = [MAIN_LIST, 'Thanksgiving', 'Christmas', "New Year's"];
 export function listOrder(names) {
   const rank = (n) => (LIST_ORDER.includes(n) ? LIST_ORDER.indexOf(n) : LIST_ORDER.length);
   return [...new Set(names)].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
 }
 
-// Which list to open on: Christmas in December, New Year's around New Year.
+// Which list to open on: Thanksgiving in November, Christmas in December, New Year's around New Year.
 export function seasonalList(date = new Date()) {
   const m = date.getMonth(), d = date.getDate();
   if (m === 11 && d >= 27) return "New Year's";
   if (m === 0 && d <= 7) return "New Year's";
   if (m === 11) return 'Christmas';
+  if (m === 10) return 'Thanksgiving';
   return MAIN_LIST;
 }
 

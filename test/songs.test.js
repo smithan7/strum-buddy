@@ -45,6 +45,7 @@ test('there are Christmas and New Year songs, all with chords she knows', () => 
   const byList = (l) => BUILT_IN_SONGS.filter((s) => parseSong(s.text).list === l);
   assert.ok(byList('Christmas').length >= 3);
   assert.ok(byList("New Year's").length >= 2);
+  assert.ok(byList('Thanksgiving').length >= 3);
 });
 
 test('lists: main first, then holidays, then her own, no repeats', () => {
@@ -55,6 +56,7 @@ test('the holiday list opens in season', () => {
   assert.equal(seasonalList(new Date(2026, 11, 10)), 'Christmas');
   assert.equal(seasonalList(new Date(2026, 11, 30)), "New Year's");
   assert.equal(seasonalList(new Date(2027, 0, 2)), "New Year's");
+  assert.equal(seasonalList(new Date(2026, 10, 25)), 'Thanksgiving');
   assert.equal(seasonalList(new Date(2027, 5, 2)), MAIN_LIST);
 });
 

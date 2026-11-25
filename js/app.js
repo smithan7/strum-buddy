@@ -90,7 +90,7 @@ function switchScreen() {
 
 // Which song list is showing: the one she picked last, or the holiday one in season.
 let songList = store.get('songList', null);
-const LIST_ICONS = { [MAIN_LIST]: '🎵', Christmas: '🎄', "New Year's": '🎆' };
+const LIST_ICONS = { [MAIN_LIST]: '🎵', Thanksgiving: '🦃', Christmas: '🎄', "New Year's": '🎆' };
 
 function songsScreen() {
   const songs = allSongIds().map((id) => ({ id, song: parseSong(songText(id)) }));
